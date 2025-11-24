@@ -3,529 +3,564 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Kemahiran Pemulihan: Operasi Tambah & Tolak Wang (Pembelajaran)</title>
+  <title>Kemahiran Pemulihan: Tambah & Tolak Wang</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+
   <style>
-    body { box-sizing: border-box; }
-    .activity-card { min-height: 450px; } 
-    .number-card, .item-card, .pay-btn, .event-btn { 
-      transition: all .3s ease; 
-      cursor: pointer; 
+    /* --- UI STYLE (TEMA HIJAU KONSISTEN) --- */
+    body { 
+        font-family: 'Fredoka', sans-serif; 
+        background-color: #f0fdf4; 
+        background-image: radial-gradient(#86efac 2px, transparent 2px); 
+        background-size: 30px 30px; 
     }
-    .item-card:hover, .pay-btn:hover, .event-btn:hover { 
-      transform: scale(1.03); 
-      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+    
+    /* Card Container */
+    .game-card { 
+        background: white; 
+        border: 4px solid #475569; 
+        box-shadow: 8px 8px 0px #00000020; 
+        border-radius: 1.5rem; 
+        transition: transform 0.2s; 
+        min-height: 550px; 
     }
-    .dragging { opacity: .5; transform: rotate(3deg); }
+    
+    /* Buttons 3D */
+    .btn-3d { transition: all 0.1s; border-bottom-width: 6px; border-color: rgba(0,0,0,0.2); transform: translateY(0); cursor: pointer; display: inline-block; }
+    .btn-3d:active:not(:disabled) { transform: translateY(4px); border-bottom-width: 2px; box-shadow: none; }
+    .btn-3d:disabled { opacity: 0.6; cursor: not-allowed; border-bottom-width: 6px; filter: grayscale(100%); }
 
-    .drop-zone {
-      border: 2px dashed #cbd5e1;
-      transition: all .3s ease;
-      min-height: 120px;
-    }
-    .drop-zone.drag-over { border-color: #3b82f6; background-color: #eff6ff; }
+    /* Animation & Drag */
+    .shake { animation: shake 0.4s ease-in-out; border-color: #ef4444 !important; background-color: #fee2e2 !important; }
+    @keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-8px) rotate(-5deg); } 75% { transform: translateX(8px) rotate(5deg); } }
+    
+    .drag-item { cursor: grab; user-select: none; transition: transform 0.1s; }
+    .drag-item:active { cursor: grabbing; transform: scale(0.95); }
+    .dragging { opacity: 0.5; transform: rotate(5deg) scale(1.1); }
 
-    @keyframes shake {
-      0% { transform: translateX(0); } 25% { transform: translateX(-5px); }
-      50% { transform: translateX(5px); } 75% { transform: translateX(-5px); }
-      100% { transform: translateX(0); }
-    }
-    .shake { animation: shake 0.5s ease; }
+    /* Drop Zones */
+    .drop-zone { border: 3px dashed #94a3b8; background-color: #f8fafc; transition: all .3s ease; border-radius: 1rem; min-height: 120px; }
+    .drop-zone.drag-over { border-color: #3b82f6; background-color: #dbeafe; transform: scale(1.02); }
+    .drop-zone-filled { border: 3px solid #22c55e; background-color: #dcfce7; }
 
-    .drop-zone-filled {
-      border-style: solid; border-color: #4ade80; background-color: #f0fdf4;
-    }
-    @keyframes pulse-green {
-      0% { background-color: #dcfce7; } 100% { background-color: inherit; }
-    }
-    @keyframes pulse-red {
-      0% { background-color: #fee2e2; } 100% { background-color: inherit; }
-    }
+    /* Pulse Animation untuk Bajet */
+    @keyframes pulse-green { 0% { background-color: #dcfce7; } 100% { background-color: transparent; } }
+    @keyframes pulse-red { 0% { background-color: #fee2e2; } 100% { background-color: transparent; } }
     .pulse-add { animation: pulse-green 0.8s ease; }
     .pulse-subtract { animation: pulse-red 0.8s ease; }
 
-    /* ===============================================
-      CSS BENTUK LAZIM (DINAMIK) UNTUK AKTIVITI 5
-      ===============================================
-    */
+    /* --- CSS KHUSUS BENTUK LAZIM (Operasi Tolak) --- */
     .money-alg-grid-borrow {
       display: grid;
-      grid-template-columns: 50px repeat(3, 70px) 20px repeat(2, 70px);
+      grid-template-columns: 50px repeat(3, 60px) 20px repeat(2, 60px);
       justify-content: center;
       font-family: 'Courier New', Courier, monospace;
-      font-size: 2.2rem;
-      font-weight: bold;
-      text-align: center;
-      line-height: 1;
+      font-size: 2rem; font-weight: bold; text-align: center; line-height: 1;
     }
-    .money-alg-grid-borrow .alg-label {
-      font-size: 0.9rem;
-      color: #777;
-      text-align: center;
-      padding-top: 1.25rem;  
-      font-weight: normal;
-      font-family: sans-serif;
-    }
-    .money-alg-grid-borrow .alg-num {
-      padding: 10px 0;
-      min-height: 70px; /* Ruang untuk nombor pinjam */
-      position: relative;
-    }
-    .money-alg-grid-borrow .alg-hasil {
-      border-top: 3px solid #333;
-      padding: 10px 0;
-      min-height: 60px;
-      color: #be185d; /* Warna jawapan */
-    }
-    .money-alg-grid-borrow .alg-symbol {
-      text-align: center;
-      font-size: 2rem;
-      padding-top: 15px;
-    }
-    .money-alg-grid-borrow .alg-dot {
-      font-size: 2rem;
-      padding-top: 15px;
-    }
-    .money-alg-grid-borrow .alg-hasil-dot {
-      border-top: 3px solid #333;
-      font-size: 2rem;
-      padding-top: 15px;
-    }
+    .money-alg-grid-borrow .alg-label { height: 10px; }
+    .money-alg-grid-borrow .alg-num { padding: 10px 0; min-height: 70px; position: relative; }
+    .money-alg-grid-borrow .alg-hasil { border-top: 4px solid #333; padding: 10px 0; min-height: 60px; color: #be185d; }
+    .money-alg-grid-borrow .alg-symbol, .money-alg-grid-borrow .alg-dot { padding-top: 15px; }
+    .money-alg-grid-borrow .alg-hasil-dot { border-top: 4px solid #333; padding-top: 15px; }
     
-    .alg-num-potong {
-      position: absolute;
-      top: 12px;
-      left: 0;
-      width: 100%;
-      color: #ef4444; /* red-500 */
-      text-decoration: line-through;
-    }
-    .alg-num-pinjam {
-      position: absolute;
-      top: -5px;
-      left: 0;
-      width: 100%;
-      color: #22c55e; /* green-500 */
-      font-size: 1.5rem; /* 24px */
-    }
-    .alg-num-potong:empty, .alg-num-pinjam:empty {
-      display: none;
-    }
-    /* =============================================== */
+    .alg-num-potong { position: absolute; top: 12px; left: 0; width: 100%; color: #ef4444; text-decoration: line-through; font-size: 1.8rem; opacity: 0.7; }
+    .alg-num-pinjam { position: absolute; top: -10px; left: 0; width: 100%; color: #16a34a; font-size: 1.2rem; }
+    .alg-num-potong:empty, .alg-num-pinjam:empty { display: none; }
 
   </style>
 </head>
-<body class="bg-gradient-to-br from-blue-50 to-green-50 min-h-full">
+<body class="min-h-screen text-slate-800 pb-10">
 
-  <div class="bg-yellow-100 border-b-4 border-yellow-300 p-4 shadow-sm sticky top-0 z-10">
-    <div class="max-w-6xl mx-auto flex items-center justify-between">
+  <div class="fixed top-4 left-0 right-0 z-50 px-4 pointer-events-none">
+    <div class="max-w-4xl mx-auto bg-green-400 border-4 border-green-600 rounded-full px-6 py-3 shadow-xl flex items-center justify-between pointer-events-auto transform hover:scale-[1.01] transition-transform">
       <div class="flex items-center gap-3">
-        <span class="text-2xl">💡</span>
-        <span id="info-text" class="text-lg font-semibold text-gray-800">
-          Pilih aktiviti untuk mula belajar operasi wang!
-        </span>
+        <span class="text-3xl animate-bounce">💰</span>
+        <span id="info-text" class="text-xl font-bold text-green-900 leading-none mt-1">Jom Kira Wang!</span>
       </div>
-      <button id="speak-btn"
-              class="bg-yellow-300 hover:bg-yellow-400 text-yellow-800 font-bold py-2 px-4 rounded-full text-xl transition-colors duration-200"
-              onclick="speakInfo()">
-        🔊
-      </button>
+      <button id="speak-btn" onclick="speakInfo()" class="bg-white hover:bg-green-50 text-green-600 border-2 border-green-200 rounded-full p-2 transition-colors shadow-sm">🔊</button>
     </div>
   </div>
+  <div class="h-24"></div>
 
-  <div class="max-w-6xl mx-auto p-6">
-    <div class="bg-white rounded-xl shadow-lg p-6 mb-6 activity-card flex items-center justify-center">
-      <div id="activity-content" class="text-center w-full">
-        <div class="py-16">
-          <div class="text-6xl mb-4">💰</div>
-          <h2 class="text-3xl font-bold text-gray-800 mb-4">
-            Kemahiran Pemulihan: Tambah & Tolak Wang (RM1000)
-          </h2>
-          <p class="text-xl text-gray-600 mb-8">
-            Jom teroka simulasi jual beli, bajet, dan pengiraan baki.
-          </p>
-          <div class="text-4xl">👇</div>
+  <div class="max-w-6xl mx-auto p-4">
+    
+    <div class="game-card p-8 mb-8 flex items-center justify-center relative">
+        <div id="activity-content" class="w-full relative z-10">
+            <div class="py-10 text-center">
+                <div class="text-8xl mb-6 animate-pulse">🏪</div>
+                <h2 class="text-5xl font-bold text-emerald-600 mb-4">Tambah & Tolak Wang</h2>
+                <p class="text-2xl text-slate-500 mb-8 font-semibold">Simulasi Kedai, Bajet & Baki</p>
+                <div class="text-4xl animate-bounce">👇</div>
+            </div>
         </div>
-      </div>
     </div>
 
-    <div class="bg-white rounded-xl shadow-lg p-6">
-      <h3 class="text-2xl font-bold text-gray-800 mb-4 text-center">Pilih Aktiviti (Eksplorasi)</h3>
-      <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-6">
-        <button onclick="loadActivity(1)"
-                class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-4 rounded-lg text-lg transition-colors duration-200">
-          🛒 Kedai Runcit
-        </button>
-        <button onclick="loadActivity(2)"
-                class="bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-4 rounded-lg text-lg transition-colors duration-200">
-          🏧 Mesin Baki
-        </button>
-        <button onclick="loadActivity(3)"
-                class="bg-purple-500 hover:bg-purple-600 text-white font-bold py-3 px-4 rounded-lg text-lg transition-colors duration-200">
-          💸 Bajet Mingguan
-        </button>
-        <button onclick="loadActivity(4)"
-                class="bg-orange-500 hover:bg-orange-600 text-white font-bold py-3 px-4 rounded-lg text-lg transition-colors duration-200">
-          🧾 Padan Resit
-        </button>
-        <button onclick="loadActivity(5)"
-                class="bg-red-500 hover:bg-red-600 text-white font-bold py-3 px-4 rounded-lg text-lg transition-colors duration-200">
-          🚲 Banding Beza
-        </button>
+    <div class="bg-white/80 backdrop-blur-sm rounded-3xl shadow-lg p-6 border-2 border-white">
+      <h3 class="text-2xl font-bold text-slate-700 mb-4 text-center">🎮 Pilih Aktiviti</h3>
+      
+      <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-8">
+        <button onclick="loadActivity(1)" class="btn-3d bg-blue-500 text-white font-bold py-4 px-2 rounded-xl text-lg">🛒 Kedai Runcit</button>
+        <button onclick="loadActivity(2)" class="btn-3d bg-emerald-500 text-white font-bold py-4 px-2 rounded-xl text-lg">🏧 Mesin Baki</button>
+        <button onclick="loadActivity(3)" class="btn-3d bg-violet-500 text-white font-bold py-4 px-2 rounded-xl text-lg">💸 Bajet Kita</button>
+        <button onclick="loadActivity(4)" class="btn-3d bg-orange-500 text-white font-bold py-4 px-2 rounded-xl text-lg">🧾 Padan Resit</button>
+        <button onclick="loadActivity(5)" class="btn-3d bg-rose-500 text-white font-bold py-4 px-2 rounded-xl text-lg">🚲 Banding Harga</button>
       </div>
 
-      <div class="flex justify-center gap-4">
-        <button onclick="clearActivity()" class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-6 rounded-lg text-lg transition-colors duration-200">
-          🧹 Bersih
-        </button>
-        <button onclick="nextActivity()" class="bg-indigo-500 hover:bg-indigo-600 text-white font-bold py-2 px-6 rounded-lg text-lg transition-colors duration-200">
-          ➡️ Seterusnya
-        </button>
+      <div class="flex justify-center gap-4 border-t-2 border-slate-100 pt-6">
+        <button onclick="clearActivity()" class="btn-3d bg-slate-400 text-white font-bold py-2 px-6 rounded-full text-lg">🏠 Menu</button>
+        <button onclick="nextActivity()" class="btn-3d bg-indigo-500 text-white font-bold py-2 px-8 rounded-full text-xl">Seterusnya ➡️</button>
       </div>
     </div>
   </div>
 
   <script>
+    /* --- STANDARD HELPERS --- */
     let currentActivity = 0;
     let ttsEnabled = false;
-    let currentInfo = "Pilih aktiviti untuk mula belajar operasi wang!";
+    let currentInfo = "Pilih aktiviti untuk mula.";
     let draggedElement = null;
 
-    /* STATE SIMPANAN */
-    let cartTotal = 0.0;
-    let budgetLimit = 200.0;
-    let currentBalance = 0.0;
-    let eventQueue = [];
-    const allEvents = [
-      { name: "Dapat Duit Belanja", amount: 150.00 },
-      { name: "Beli Buku Rujukan", amount: -45.50 },
-      { name: "Makan di Kantin", amount: -5.00 },
-      { name: "Topup Telefon", amount: -10.00 },
-      { name: "Dapat Duit Upah Tolong Ayah", amount: 20.00 },
-      { name: "Beli Tiket Wayang", amount: -18.00 }
-    ];
-    let receiptSum = 0.0;
-    let receiptTarget = 0.0;
-
-
-    /* ====== TTS ====== */
-    function speak(text) {
-      if (!ttsEnabled) return;
-      if (!('speechSynthesis' in window)) return;
-      window.speechSynthesis.cancel();
-      setTimeout(() => {
-        const u = new SpeechSynthesisUtterance(text);
-        u.lang = 'ms-MY';
-        u.rate = 0.9; u.pitch = 1.05;
-        const voices = window.speechSynthesis.getVoices();
-        const ms = voices.find(v => v.lang === 'ms-MY' || v.lang?.startsWith('ms'));
-        if (ms) u.voice = ms;
-        window.speechSynthesis.speak(u);
-      }, 100);
+    function triggerWin() { confetti({ particleCount: 150, spread: 80, origin: { y: 0.6 } }); }
+    
+    function speak(text) { 
+        if (!ttsEnabled || !('speechSynthesis' in window)) return; 
+        window.speechSynthesis.cancel(); 
+        const u = new SpeechSynthesisUtterance(text); 
+        u.lang = 'ms-MY'; u.rate = 0.9; u.pitch = 1.1; 
+        const voices = window.speechSynthesis.getVoices(); 
+        const ms = voices.find(v => v.lang === 'ms-MY' || v.lang?.startsWith('ms')); 
+        if (ms) u.voice = ms; 
+        window.speechSynthesis.speak(u); 
     }
-    function setInfo(text) { currentInfo = text; document.getElementById('info-text').textContent = text; }
-    function speakInfo() {
-      if (!ttsEnabled) {
-        ttsEnabled = true;
-        const btn = document.getElementById('speak-btn');
-        btn.classList.add('bg-green-300', 'hover:bg-green-400');
-        btn.classList.remove('bg-yellow-300', 'hover:bg-yellow-400');
-      }
-      speak(currentInfo);
+    
+    function setInfo(text) { 
+        currentInfo = text; 
+        const infoEl = document.getElementById('info-text'); 
+        infoEl.style.opacity = 0; 
+        setTimeout(() => { infoEl.textContent = text; infoEl.style.opacity = 1; }, 200); 
+    }
+    
+    function speakInfo() { 
+        if (!ttsEnabled) { 
+            ttsEnabled = true; 
+            document.getElementById('speak-btn').classList.add('bg-green-100', 'text-green-600'); 
+        } 
+        speak(currentInfo); 
     }
 
-    /* ====== DnD helpers ====== */
-    function dragStart(e) { draggedElement = e.target; e.target.classList.add('dragging'); }
-    function dragEnd(e) { 
-      if(e.target) e.target.classList.remove('dragging'); 
-      document.querySelectorAll('.drop-zone').forEach(z=>z.classList.remove('drag-over')); 
+    /* --- DnD HELPERS --- */
+    window.dragStart = function(e) { 
+        draggedElement = e.target; 
+        e.target.classList.add('dragging'); 
+        if(e.target.dataset.price) e.dataTransfer.setData('price', e.target.dataset.price);
+        if(e.target.dataset.name) e.dataTransfer.setData('name', e.target.dataset.name);
     }
-    function allowDrop(e) { e.preventDefault(); if (e.currentTarget.classList.contains('drop-zone')) e.currentTarget.classList.add('drag-over'); }
-    function dragLeave(e) { if (e.currentTarget.classList.contains('drop-zone')) e.currentTarget.classList.remove('drag-over'); }
+    window.dragEnd = function(e) { 
+        if(draggedElement) draggedElement.classList.remove('dragging'); 
+        document.querySelectorAll('.drop-zone').forEach(z=>z.classList.remove('drag-over')); 
+        draggedElement = null;
+    }
+    window.allowDrop = function(e) { 
+        e.preventDefault(); 
+        if (e.currentTarget.classList.contains('drop-zone')) e.currentTarget.classList.add('drag-over'); 
+    }
+    window.dragLeave = function(e) { 
+        if (e.currentTarget.classList.contains('drop-zone')) e.currentTarget.classList.remove('drag-over'); 
+    }
 
-    /* ====== ROUTER AKTIVITI ====== */
+    /* --- ROUTER --- */
     function loadActivity(n) {
       currentActivity = n;
       const content = document.getElementById('activity-content');
-      cartTotal = 0.0;
-      receiptSum = 0.0;
-      
-      if (n === 1) return loadActivity_Kedai(content);
-      if (n === 2) return loadActivity_MesinBaki(content);
-      if (n === 3) return loadActivity_Bajet(content);
-      if (n === 4) return loadActivity_Resit(content);
-      if (n === 5) return loadActivity_Banding(content);
+      content.style.opacity = 0;
+      setTimeout(() => {
+          if (n === 1) loadActivity_Kedai(content);
+          if (n === 2) loadActivity_MesinBaki(content);
+          if (n === 3) loadActivity_Bajet(content);
+          if (n === 4) loadActivity_Resit(content);
+          if (n === 5) loadActivity_Banding(content);
+          content.style.opacity = 1;
+      }, 200);
     }
 
-    /* ====== AKTIVITI 1: KEDAI RUNCIT (Fungsi dikekalkan) ====== */
+    function clearActivity() {
+        currentActivity = 0;
+        document.getElementById('activity-content').innerHTML = `<div class="py-10 text-center"><div class="text-8xl mb-6 animate-bounce">🏪</div><h2 class="text-5xl font-bold text-emerald-600 mb-4">Tambah & Tolak Wang</h2><p class="text-2xl text-slate-500 mb-8 font-semibold">Pilih butang di bawah.</p></div>`;
+        setInfo("Pilih aktiviti untuk mula.");
+    }
+    function nextActivity() { let next = currentActivity + 1; if (next > 5) next = 1; loadActivity(next); }
+
+    /* =========================================
+       LOGIK AKTIVITI
+       ========================================= */
+
+    /* --- 1. KEDAI RUNCIT (TAMBAH) --- */
+    let cartTotal = 0.0;
+    let budgetLimit = 200.0;
+
     function loadActivity_Kedai(content) {
-      budgetLimit = 200.00; cartTotal = 0.0;
-      setInfo(`Bajet anda RM${budgetLimit.toFixed(2)}. Seret barang ke bakul untuk lihat jumlah.`);
-      const items = [
-        { name: "Kasut Sekolah", price: 85.50, img: "👟" }, { name: "Beg Galas", price: 120.00, img: "🎒" },
-        { name: "Botol Air", price: 25.00, img: "💧" }, { name: "Buku Latihan", price: 15.90, img: "📓" },
-        { name: "Alat Tulis", price: 30.00, img: "✏️" },
-      ];
-      content.innerHTML = `<h3 class="text-2xl font-bold text-blue-600 mb-4">🛒 Kedai Runcit Maya</h3><div class="grid grid-cols-1 md:grid-cols-2 gap-6"><div><h4 class="text-lg font-semibold mb-3">Pilih Barang (Seret ke Bakul)</h4><div id="item-shelf" class="flex flex-col gap-3">${items.map(item => `<div class="item-card flex items-center justify-between bg-blue-50 border-2 border-blue-200 rounded-lg p-4 cursor-move" draggable="true" ondragstart="dragStart(event)" ondragend="dragEnd(event)" data-name="${item.name}" data-price="${item.price}"><span class="text-3xl">${item.img}</span><span class="font-semibold text-lg text-blue-800">${item.name}</span><span class="font-bold text-xl text-blue-900">RM ${item.price.toFixed(2)}</span></div>`).join('')}</div></div><div><div class="bg-gray-100 rounded-lg p-4 sticky top-20"><h4 class="text-lg font-semibold mb-2">Bakul Anda (Bajet: <span class="text-red-600">RM ${budgetLimit.toFixed(2)}</span>)</h4><div id="cart-dropzone" class="drop-zone bg-white rounded-lg p-3" ondrop="dropOnCart(event)" ondragover="allowDrop(event)" ondragleave="dragLeave(event)"><span class="text-gray-400">Letak barang di sini...</span></div><div class="mt-4 text-right"><span class="text-xl font-semibold text-gray-700">Jumlah:</span><span id="cart-total" class="text-3xl font-bold text-blue-800 ml-2">RM 0.00</span></div><div id="budget-warning" class="text-center text-red-600 font-bold mt-2 h-6"></div><button onclick="resetCart()" class="mt-2 w-full bg-gray-400 hover:bg-gray-500 text-white font-bold py-2 rounded-lg">Kosongkan Bakul</button></div></div></div>`;
-    }
-    function dropOnCart(e) {
-      e.preventDefault(); e.currentTarget.classList.remove('drag-over'); if (!draggedElement) return;
-      const name = draggedElement.dataset.name; const price = parseFloat(draggedElement.dataset.price);
-      cartTotal += price; const totalEl = document.getElementById('cart-total');
-      totalEl.textContent = `RM ${cartTotal.toFixed(2)}`;
-      if(e.currentTarget.querySelector('.text-gray-400')) e.currentTarget.innerHTML = '';
-      const cartItem = document.createElement('div'); cartItem.className = 'flex items-center justify-between bg-white border-b p-2';
-      cartItem.innerHTML = `<span>${name} (RM ${price.toFixed(2)})</span><button class="text-red-500 font-bold px-2" onclick="removeFromCart(this, ${price})">X</button>`;
-      e.currentTarget.appendChild(cartItem); draggedElement.style.display = 'none'; draggedElement = null;
-      const warningEl = document.getElementById('budget-warning');
-      if (cartTotal > budgetLimit) {
-        warningEl.textContent = "Amaran! Melebihi bajet!"; totalEl.classList.add('text-red-600', 'shake');
-        setInfo(`Jumlah RM ${cartTotal.toFixed(2)}. Anda telah lebih bajet!`); speak(`Amaran, jumlah ${cartTotal.toFixed(2)}. Melebihi bajet.`);
-      } else {
-        warningEl.textContent = ""; totalEl.classList.remove('text-red-600', 'shake');
-        setInfo(`Barang ditambah. Jumlah sekarang RM ${cartTotal.toFixed(2)}.`); speak(`Jumlah ${cartTotal.toFixed(2)}.`);
-      }
-    }
-    function removeFromCart(btn, price) {
-      cartTotal -= price; document.getElementById('cart-total').textContent = `RM ${cartTotal.toFixed(2)}`;
-      const name = btn.parentElement.innerText.split(' (')[0]; const shelfItem = document.querySelector(`#item-shelf div[data-name="${name}"]`);
-      if(shelfItem) shelfItem.style.display = 'flex';
-      btn.parentElement.remove(); const warningEl = document.getElementById('budget-warning');
-      if (cartTotal <= budgetLimit) {
-        warningEl.textContent = ""; document.getElementById('cart-total').classList.remove('text-red-600', 'shake');
-      }
-      setInfo(`Item dibuang. Jumlah sekarang RM ${cartTotal.toFixed(2)}.`);
-    }
-    function resetCart() { loadActivity_Kedai(document.getElementById('activity-content')); }
-
-
-    /* ====== AKTIVITI 2: MESIN KIRA BAKI (Fungsi dikekalkan) ====== */
-    function loadActivity_MesinBaki(content) {
-      const purchaseAmount = 78.50;
-      setInfo(`Harga barang ialah RM${purchaseAmount.toFixed(2)}. Cuba bayar dengan wang yang berbeza.`);
-      content.innerHTML = `<h3 class="text-2xl font-bold text-green-600 mb-6">🏧 Mesin Kira Baki</h3><div class="bg-gray-50 rounded-xl p-6 shadow-inner"><div class="text-center mb-6"><div class="text-lg text-gray-600">Jumlah Perlu Dibayar:</div><div class="text-5xl font-bold text-red-600">RM ${purchaseAmount.toFixed(2)}</div></div><h4 class="text-lg font-semibold text-center mb-3">Pilih Wang Untuk Membayar:</h4><div class="flex flex-wrap justify-center gap-4 mb-6"><button class="pay-btn bg-green-100 border-2 border-green-300 rounded-lg p-4 text-2xl font-bold text-green-800" onclick="calculateChange_run(${purchaseAmount}, 80.00)">Bayar RM 80.00</button><button class="pay-btn bg-green-100 border-2 border-green-300 rounded-lg p-4 text-2xl font-bold text-green-800" onclick="calculateChange_run(${purchaseAmount}, 100.00)">Bayar RM 100.00</button><button class="pay-btn bg-red-100 border-2 border-red-300 rounded-lg p-4 text-2xl font-bold text-red-800" onclick="calculateChange_run(${purchaseAmount}, 70.00)">Bayar RM 70.00 (Tak Cukup)</button></div><div id="receipt-output" class="bg-white rounded-lg shadow-md p-6 min-h-32 text-center text-lg text-gray-500">Klik butang bayar untuk melihat pengiraan baki...</div></div>`;
-    }
-    function calculateChange_run(total, paid) {
-      const output = document.getElementById('receipt-output'); output.classList.remove('shake');
-      if (paid < total) {
-        output.innerHTML = `<div class="text-2xl font-bold text-red-600">Tidak Cukup!</div><div class="text-lg">Anda bayar RM ${paid.toFixed(2)}, tapi harga barang RM ${total.toFixed(2)}.</div>`;
-        output.classList.add('shake'); setInfo(`Tidak cukup. Wang dibayar RM ${paid.toFixed(2)} kurang dari harga RM ${total.toFixed(2)}.`); speak("Wang tidak mencukupi.");
-      } else {
-        const change = (paid - total).toFixed(2); 
-        output.innerHTML = `<div class="text-lg">Anda bayar: <span class="font-bold text-gray-800">RM ${paid.toFixed(2)}</span></div><div class="text-lg">Harga barang: <span class="font-bold text-gray-800">- RM ${total.toFixed(2)}</span></div><hr class="my-3"><div class="text-xl font-bold">Baki anda:</div><div class="text-4xl font-bold text-green-600">RM ${change}</div>`;
-        setInfo(`Bayar RM ${paid.toFixed(2)}, tolak RM ${total.toFixed(2)}, baki ialah RM ${change}.`); speak(`Baki ialah ${change} ringgit.`);
-      }
-    }
-
-
-    /* ===============================================
-      AKTIVITI 3: BAJET MINGGUAN (FUNGSI DIUBAHSUAI)
-      ===============================================
-    */
-    function loadActivity_Bajet(content) {
-      currentBalance = 0.0;
-      eventQueue = [...allEvents].sort(() => 0.5 - Math.random()).slice(0, 4);
-      eventQueue.unshift({ name: "Dapat Duit Belanja Mingguan", amount: 150.00 });
-      
-      setInfo("Jom urus bajet mingguan. Klik 'Seterusnya' untuk lihat apa jadi pada baki anda.");
-      
-      // === HTML DIUBAHSUAI (GRID 2-KOLUM) ===
-      content.innerHTML = `
-        <h3 class="text-2xl font-bold text-purple-600 mb-4">💸 Simulasi Bajet Mingguan</h3>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-          
-          <div class="bg-purple-50 rounded-xl p-6 shadow-inner">
-            <div class="text-center mb-6">
-              <div class="text-xl text-gray-600">Baki Dalam Dompet:</div>
-              <div id="balance-display" class="text-6xl font-bold text-purple-900 transition-colors duration-300">
-                RM 0.00
-              </div>
+        budgetLimit = 200.00; cartTotal = 0.0;
+        setInfo(`Bajet RM${budgetLimit}. Seret barang ke bakul.`);
+        const items = [
+            { name: "Kasut", price: 85.50, img: "👟" }, { name: "Beg", price: 120.00, img: "🎒" },
+            { name: "Botol", price: 25.00, img: "💧" }, { name: "Buku", price: 15.90, img: "📓" },
+            { name: "Alat Tulis", price: 30.00, img: "✏️" }
+        ];
+        content.innerHTML = `
+            <h3 class="text-4xl font-bold text-blue-500 mb-6 text-center">🛒 Kedai Runcit (Operasi Tambah)</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 h-full">
+                <div class="bg-blue-50 rounded-2xl p-4 border-2 border-blue-200">
+                    <h4 class="font-bold text-blue-800 mb-3">Rak Barang</h4>
+                    <div id="item-shelf" class="flex flex-wrap gap-3 justify-center">
+                        ${items.map(item => `
+                            <div class="drag-item bg-white border-b-4 border-blue-300 rounded-xl p-3 w-32 text-center cursor-grab active:cursor-grabbing shadow-sm" draggable="true" ondragstart="dragStart(event)" ondragend="dragEnd(event)" data-name="${item.name}" data-price="${item.price}">
+                                <div class="text-4xl mb-1">${item.img}</div>
+                                <div class="font-bold text-slate-700">${item.name}</div>
+                                <div class="text-blue-600 font-black">RM${item.price.toFixed(2)}</div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+                <div class="flex flex-col">
+                    <div class="bg-white rounded-2xl p-4 border-2 border-slate-200 flex-grow flex flex-col">
+                        <h4 class="font-bold text-slate-500 mb-2">Bakul (Bajet: RM${budgetLimit})</h4>
+                        <div id="cart-dropzone" class="drop-zone flex-grow mb-4 p-2 flex flex-col gap-2 overflow-y-auto max-h-[250px]" ondrop="dropOnCart(event)" ondragover="allowDrop(event)" ondragleave="dragLeave(event)">
+                            <div class="text-slate-300 text-center mt-10 pointer-events-none">Seret barang ke sini</div>
+                        </div>
+                        <div class="border-t-2 border-dashed border-slate-200 pt-2">
+                            <div class="flex justify-between items-end">
+                                <span class="text-slate-400 font-bold">Jumlah Besar</span>
+                                <span id="cart-total" class="text-4xl font-black text-blue-600">RM0.00</span>
+                            </div>
+                            <div id="budget-warning" class="text-red-500 font-bold text-center h-6 text-sm mt-1"></div>
+                            <button onclick="loadActivity_Kedai(document.getElementById('activity-content'))" class="btn-3d bg-slate-200 text-slate-600 text-sm font-bold py-2 px-4 rounded-lg mt-2 w-full">Kosongkan Bakul</button>
+                        </div>
+                    </div>
+                </div>
             </div>
-            
-            <div id="event-card-display" class="min-h-32 flex items-center justify-center bg-white rounded-lg shadow-md p-6 mb-6">
-               <span class="text-xl text-gray-500">Tekan 'Mula' untuk terima duit belanja.</span>
-            </div>
-            
-            <button id="next-event-btn" class="event-btn w-full bg-purple-500 hover:bg-purple-600 text-white font-bold py-4 rounded-lg text-xl"
-                    onclick="runNextBudgetEvent()">
-              Mula
-            </button>
-          </div>
-
-          <div>
-            <h4 class="text-xl font-semibold text-gray-700 mb-3">Jalan Kira (Ayat Matematik):</h4>
-            <div id="transaction-log" class="bg-gray-50 border border-gray-200 rounded-lg p-4 min-h-64 flex flex-col gap-2">
-              <span class="text-gray-400 font-mono">Rekod akan dipaparkan di sini...</span>
-            </div>
-          </div>
-
-        </div>
-      `;
-      // === TAMAT UBAHSUAI HTML ===
+        `;
     }
-    
-    function runNextBudgetEvent() {
-      const balanceEl = document.getElementById('balance-display');
-      const eventCard = document.getElementById('event-card-display');
-      const nextBtn = document.getElementById('next-event-btn');
-      // === BAHARU: Dapatkan log elemen ===
-      const log = document.getElementById('transaction-log'); 
 
-      balanceEl.classList.remove('pulse-add', 'pulse-subtract');
-      
-      // === BAHARU: Buang placeholder jika ada ===
-      const placeholder = log.querySelector('.text-gray-400');
-      if (placeholder) {
-        log.innerHTML = ''; // Kosongkan placeholder
-      }
-      
-      if (eventQueue.length === 0) {
-        eventCard.innerHTML = `<div class="text-2xl font-bold text-purple-800">Simulasi Tamat!</div>`;
-        setInfo(`Bajet anda tamat. Baki akhir: RM ${currentBalance.toFixed(2)}.`);
-        speak(`Simulasi tamat.`);
-        nextBtn.textContent = "Main Semula";
-        nextBtn.onclick = () => loadActivity_Bajet(document.getElementById('activity-content'));
-        return;
-      }
-      
-      const event = eventQueue.shift();
-      const oldBalance = currentBalance; // Simpan baki lama
-      currentBalance += event.amount;
-      
-      let amountColor = event.amount > 0 ? "text-green-600" : "text-red-600";
-      let pulseClass = event.amount > 0 ? "pulse-add" : "pulse-subtract";
-      let operator = event.amount > 0 ? "+" : "−"; // Guna simbol tolak
-      
-      balanceEl.textContent = `RM ${currentBalance.toFixed(2)}`;
-      balanceEl.classList.add(pulseClass);
-      
-      eventCard.innerHTML = `
-        <div class="text-center">
-          <div class="text-xl font-semibold text-gray-800">${event.name}</div>
-          <div class="text-3xl font-bold ${amountColor}">
-            ${event.amount > 0 ? '+' : ''} RM ${Math.abs(event.amount).toFixed(2)}
-          </div>
-        </div>
-      `;
-      
-      // === BAHARU: Cipta dan tambah log ayat matematik ===
-      const logEntry = document.createElement('div');
-      logEntry.className = 'font-mono text-lg p-2 border-b border-gray-100';
-      logEntry.innerHTML = `
-        <span class="text-gray-500">RM ${oldBalance.toFixed(2)}</span>
-        <span class="${amountColor} font-bold"> ${operator} RM ${Math.abs(event.amount).toFixed(2)}</span>
-        <span class="text-purple-700 font-bold"> = RM ${currentBalance.toFixed(2)}</span>
-      `;
-      log.prepend(logEntry); // Tambah ke atas (macam 'feed')
-      // === TAMAT BAHAGIAN BAHARU ===
+    window.dropOnCart = function(e) {
+        e.preventDefault(); e.currentTarget.classList.remove('drag-over'); 
+        if (!draggedElement) return;
+        
+        // Remove placeholder text if exists
+        const placeholder = e.currentTarget.querySelector('.text-slate-300');
+        if(placeholder) placeholder.remove();
 
-      nextBtn.textContent = "Seterusnya";
-      
-      let infoMsg = `${event.name}. Baki sekarang RM ${currentBalance.toFixed(2)}.`;
-      setInfo(infoMsg);
-      speak(infoMsg);
-    }
-    
-    
-    /* ====== AKTIVITI 4: PADAN RESIT (Fungsi dikekalkan) ====== */
-    function loadActivity_Resit(content) {
-      receiptTarget = 145.50; receiptSum = 0.0;
-      setInfo(`Target resit ialah RM ${receiptTarget.toFixed(2)}. Seret barang untuk padankan jumlah.`);
-      const items = [
-        { name: "Baju", price: 45.50, img: "👕" }, { name: "Seluar", price: 80.00, img: "👖" },
-        { name: "Buku", price: 20.00, img: "📚" }, { name: "Kasut", price: 100.00, img: "👟" },
-        { name: "Topi", price: 25.50, img: "🧢" }
-      ];
-      content.innerHTML = `<h3 class="text-2xl font-bold text-orange-600 mb-4">🧾 Padankan Resit</h3><div class="grid grid-cols-1 md:grid-cols-2 gap-6"><div><h4 class="text-lg font-semibold mb-3">Bank Item (Seret ke Resit)</h4><div id="item-bank" class="flex flex-col gap-3">${items.sort(()=>Math.random()-0.5).map(item => `<div class="item-card flex items-center justify-between bg-orange-50 border-2 border-orange-200 rounded-lg p-4 cursor-move" draggable="true" ondragstart="dragStart(event)" ondragend="dragEnd(event)" data-name="${item.name}" data-price="${item.price}"><span class="text-3xl">${item.img}</span><span class="font-semibold text-lg text-orange-800">${item.name}</span><span class="font-bold text-xl text-orange-900">RM ${item.price.toFixed(2)}</span></div>`).join('')}</div></div><div><div class="bg-gray-100 rounded-lg p-4 sticky top-20"><h4 class="text-lg font-semibold mb-2 text-center">Resit</h4><div class="text-center mb-3"><span class="text-lg">Target Jumlah:</span><span class="text-2xl font-bold text-red-600">RM ${receiptTarget.toFixed(2)}</span></div><div id="receipt-dropzone" class="drop-zone bg-white rounded-lg p-3" ondrop="dropOnReceipt(event)" ondragover="allowDrop(event)" ondragleave="dragLeave(event)"><span class="text-gray-400">Letak barang di sini...</span></div><div class="mt-4 text-right"><span class="text-xl font-semibold text-gray-700">Jumlah Anda:</span><span id="receipt-sum" class="text-3xl font-bold text-orange-800 ml-2">RM 0.00</span></div><button onclick="resetReceipt()" class="mt-4 w-full bg-gray-400 hover:bg-gray-500 text-white font-bold py-2 rounded-lg">Cuba Semula</button></div></div></div>`;
-    }
-    function dropOnReceipt(e) {
-      e.preventDefault(); e.currentTarget.classList.remove('drag-over'); if (!draggedElement) return;
-      const name = draggedElement.dataset.name; const price = parseFloat(draggedElement.dataset.price);
-      receiptSum += price; const sumEl = document.getElementById('receipt-sum');
-      sumEl.textContent = `RM ${receiptSum.toFixed(2)}`;
-      if(e.currentTarget.querySelector('.text-gray-400')) e.currentTarget.innerHTML = '';
-      const receiptItem = document.createElement('div'); receiptItem.className = 'flex justify-between bg-white border-b p-2';
-      receiptItem.innerHTML = `<span>${name}</span> <span>RM ${price.toFixed(2)}</span>`;
-      e.currentTarget.appendChild(receiptItem); draggedElement.style.display = 'none'; draggedElement = null;
-      sumEl.classList.remove('shake', 'text-green-600');
-      if (receiptSum === receiptTarget) {
-        sumEl.classList.add('text-green-600'); e.currentTarget.classList.add('drop-zone-filled');
-        setInfo(`Syabas! RM ${receiptSum.toFixed(2)} padan dengan target!`); speak("Syabas! Jumlah padan.");
-      } else if (receiptSum > receiptTarget) {
-        sumEl.classList.add('shake', 'text-red-600');
-        setInfo(`RM ${receiptSum.toFixed(2)}. Terlebih! Tekan 'Cuba Semula'.`); speak("Oh, terlebih. Cuba semula.");
-      } else {
-        sumEl.classList.remove('text-red-600');
-        setInfo(`Jumlah RM ${receiptSum.toFixed(2)}. Perlu tambah lagi.`); speak(`Jumlah ${receiptSum.toFixed(2)}.`);
-      }
-    }
-    function resetReceipt() { loadActivity_Resit(document.getElementById('activity-content')); }
+        const name = draggedElement.dataset.name; 
+        const price = parseFloat(draggedElement.dataset.price);
+        
+        // Create receipt item
+        const itemEl = document.createElement('div');
+        itemEl.className = "flex justify-between items-center bg-blue-50 p-2 rounded-lg animate-[popIn_0.3s]";
+        itemEl.innerHTML = `<span class="font-bold text-slate-700">${name}</span><span class="font-mono text-blue-600">RM${price.toFixed(2)}</span>`;
+        e.currentTarget.appendChild(itemEl);
 
-
-    /* ====== AKTIVITI 5: BANDING BEZA (Fungsi dikekalkan) ====== */
-    function loadActivity_Banding(content) {
-      setInfo("Lihat harga dua barang. Klik 'Kira Beza' untuk lihat perbandingan (operasi tolak).");
-      content.innerHTML = `
-        <h3 class="text-2xl font-bold text-red-600 mb-6">🚲 Banding Beza Harga</h3>
-        <div id="compare-wrapper" class="bg-red-50 rounded-xl p-6 shadow-inner">
-          </div>
-        <div class="text-center mt-6">
-          <button class="event-btn bg-red-500 hover:bg-red-600 text-white font-bold py-3 px-8 rounded-lg text-lg"
-                  onclick="loadNewCompareExample()">
-            🔄 Contoh Lain
-          </button>
-        </div>
-      `;
-      loadNewCompareExample();
+        cartTotal += price;
+        updateCartDisplay();
     }
-    
-    function loadNewCompareExample() {
-      const wrapper = document.getElementById('compare-wrapper');
-      let priceA_cents, priceB_cents, priceA, priceB;
-      let needsBorrow = false;
-      do {
-        let priceA_tens = Math.floor(Math.random() * 8000) + 2000; 
-        priceA_cents = priceA_tens * 10; 
-        let priceB_tens = Math.floor(Math.random() * (priceA_tens - 1000)) + 1000;
-        priceB_cents = priceB_tens * 10;
-        let a_str = priceA_cents.toString().padStart(5, '0');
-        let b_str = priceB_cents.toString().padStart(5, '0');
-        needsBorrow = false;
-        for (let i = 0; i < a_str.length - 1; i++) {
-          if (parseInt(a_str[i]) < parseInt(b_str[i])) {
-            needsBorrow = true;
-            break;
-          }
+
+    function updateCartDisplay() {
+        const totalEl = document.getElementById('cart-total');
+        const warningEl = document.getElementById('budget-warning');
+        totalEl.textContent = `RM${cartTotal.toFixed(2)}`;
+        
+        if (cartTotal > budgetLimit) {
+            warningEl.textContent = "⚠️ MELEBIHI BAJET!";
+            totalEl.classList.add('text-red-500', 'shake');
+            totalEl.classList.remove('text-blue-600');
+            speak(`Jumlah RM${cartTotal.toFixed(2)}. Sudah lebih bajet!`);
+        } else {
+            warningEl.textContent = "";
+            totalEl.classList.add('text-blue-600');
+            totalEl.classList.remove('text-red-500', 'shake');
+            speak(`Jumlah RM${cartTotal.toFixed(2)}`);
         }
-      } while (!needsBorrow);
-      priceA = (priceA_cents / 100).toFixed(2);
-      priceB = (priceB_cents / 100).toFixed(2);
-      wrapper.innerHTML = `
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-          <div class="item-card bg-white rounded-lg p-6 text-center border-2 border-gray-200">
-            <div class="text-5xl mb-2">💻</div>
-            <div class="text-xl font-semibold">Komputer Riba</div>
-            <div class="text-4xl font-bold text-gray-800">RM ${priceA}</div>
-          </div>
-          <div class="item-card bg-white rounded-lg p-6 text-center border-2 border-gray-200">
-            <div class="text-5xl mb-2">📱</div>
-            <div class="text-xl font-semibold">Telefon</div>
-            <div class="text-4xl font-bold text-gray-800">RM ${priceB}</div>
-          </div>
-        </div>
-        <div class="text-center mb-6">
-          <button class="pay-btn bg-white border-2 border-gray-300 rounded-lg py-3 px-6 text-xl font-bold text-gray-800"
-                  onclick="showDifference(${priceA}, ${priceB})">
-            Kira Beza Harga (Tolak)
-          </button>
-        </div>
-        <div id="difference-output" class="bg-white rounded-lg shadow-md p-6 min-h-24 text-center text-lg text-gray-500">
-          Berapakah beza harga antara dua barang ini? (Klik untuk lihat cara kira)
-        </div>
-      `;
-      setInfo("Lihat dua harga baru. Klik butang untuk melihat perbezaan.");
     }
-    
+
+    /* --- 2. MESIN BAKI (TOLAK) --- */
+    function loadActivity_MesinBaki(content) {
+        const purchaseAmount = 78.50;
+        setInfo(`Barang RM${purchaseAmount.toFixed(2)}. Bayar guna duit yang sesuai.`);
+        
+        content.innerHTML = `
+            <h3 class="text-4xl font-bold text-emerald-500 mb-6 text-center">🏧 Mesin Baki (Operasi Tolak)</h3>
+            <div class="max-w-2xl mx-auto bg-emerald-50 rounded-3xl p-8 border-4 border-emerald-200 text-center">
+                <div class="mb-8">
+                    <div class="text-slate-500 font-bold uppercase text-sm mb-1">Jumlah Perlu Dibayar</div>
+                    <div class="text-6xl font-black text-emerald-700">RM${purchaseAmount.toFixed(2)}</div>
+                </div>
+
+                <div class="grid grid-cols-3 gap-4 mb-8">
+                    <button onclick="calcChange(${purchaseAmount}, 70)" class="btn-3d bg-white border-emerald-200 text-red-600 font-bold py-4 rounded-xl">
+                        RM70.00
+                        <div class="text-xs text-slate-400 mt-1">(Tak Cukup)</div>
+                    </button>
+                    <button onclick="calcChange(${purchaseAmount}, 80)" class="btn-3d bg-emerald-500 text-white font-bold py-4 rounded-xl">
+                        RM80.00
+                    </button>
+                    <button onclick="calcChange(${purchaseAmount}, 100)" class="btn-3d bg-emerald-600 text-white font-bold py-4 rounded-xl">
+                        RM100.00
+                    </button>
+                </div>
+
+                <div id="baki-output" class="bg-white rounded-xl p-6 min-h-[120px] flex flex-col items-center justify-center shadow-inner border border-emerald-100">
+                    <p class="text-slate-400 font-bold">Pilih wang untuk bayar</p>
+                </div>
+            </div>
+        `;
+    }
+
+    window.calcChange = function(total, paid) {
+        const out = document.getElementById('baki-output');
+        if (paid < total) {
+            out.innerHTML = `<div class="text-red-500 font-bold text-xl shake">❌ Tidak Cukup!</div><p class="text-slate-500">RM${paid} kurang daripada RM${total}</p>`;
+            speak("Duit tak cukup.");
+        } else {
+            const baki = (paid - total).toFixed(2);
+            out.innerHTML = `
+                <div class="w-full flex justify-between text-lg px-4"><span>Bayar:</span> <span class="font-bold">RM${paid.toFixed(2)}</span></div>
+                <div class="w-full flex justify-between text-lg px-4 border-b-2 border-slate-100 mb-2"><span>Harga:</span> <span class="font-bold text-red-500">- RM${total.toFixed(2)}</span></div>
+                <div class="text-slate-400 font-bold text-sm uppercase">Baki Anda</div>
+                <div class="text-5xl font-black text-emerald-500 mt-1">RM${baki}</div>
+            `;
+            speak(`Baki anda ialah RM${baki}`);
+            triggerWin();
+        }
+    }
+
+    /* --- 3. BAJET MINGGUAN (SIMULASI) --- */
+    let currentBalance = 0;
+    let eventQueue = [];
+    const allEvents = [
+        { name: "Dapat Upah", amount: 150.00 }, { name: "Beli Buku", amount: -45.50 },
+        { name: "Makan KFC", amount: -25.00 }, { name: "Topup", amount: -10.00 },
+        { name: "Jual Mainan", amount: 20.00 }, { name: "Wayang", amount: -18.00 }
+    ];
+
+    function loadActivity_Bajet(content) {
+        currentBalance = 0.0;
+        eventQueue = [...allEvents].sort(() => 0.5 - Math.random()).slice(0, 4);
+        eventQueue.unshift({ name: "Duit Poket", amount: 150.00 });
+        
+        setInfo("Klik 'Mula' untuk lihat aliran wang masuk dan keluar.");
+
+        content.innerHTML = `
+            <h3 class="text-4xl font-bold text-violet-500 mb-6 text-center">💸 Bajet Mingguan</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div class="bg-violet-50 rounded-3xl p-6 border-4 border-violet-200 text-center">
+                    <div class="text-slate-500 font-bold uppercase text-sm mb-2">Baki Semasa</div>
+                    <div id="balance-display" class="text-6xl font-black text-violet-800 mb-8 transition-all">RM0.00</div>
+                    
+                    <div id="event-display" class="bg-white rounded-xl p-6 shadow-sm mb-6 min-h-[100px] flex items-center justify-center">
+                         <span class="text-slate-400">Tekan Mula</span>
+                    </div>
+
+                    <button id="next-btn" onclick="runBudgetEvent()" class="btn-3d bg-violet-500 text-white font-bold py-3 px-10 rounded-full text-xl w-full">
+                        Mula ▶️
+                    </button>
+                </div>
+
+                <div class="bg-white rounded-3xl p-6 border-2 border-slate-200 flex flex-col">
+                    <h4 class="font-bold text-slate-500 mb-4 border-b pb-2">Rekod Transaksi</h4>
+                    <div id="trans-log" class="flex-grow flex flex-col gap-2 overflow-y-auto max-h-[300px]">
+                        <div class="text-center text-slate-300 italic mt-10">Belum ada rekod</div>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    window.runBudgetEvent = function() {
+        const balEl = document.getElementById('balance-display');
+        const dispEl = document.getElementById('event-display');
+        const logEl = document.getElementById('trans-log');
+        const btn = document.getElementById('next-btn');
+
+        // Clear placeholder
+        if(logEl.querySelector('.text-slate-300')) logEl.innerHTML = '';
+
+        if(eventQueue.length === 0) {
+            dispEl.innerHTML = `<span class="font-bold text-violet-700 text-xl">Tamat! Baki Akhir: RM${currentBalance.toFixed(2)}</span>`;
+            btn.textContent = "Main Semula 🔄";
+            btn.onclick = () => loadActivity_Bajet(document.getElementById('activity-content'));
+            triggerWin();
+            return;
+        }
+
+        const evt = eventQueue.shift();
+        const oldBal = currentBalance;
+        currentBalance += evt.amount;
+
+        // Visual Feedback
+        const color = evt.amount > 0 ? "text-green-500" : "text-red-500";
+        const sign = evt.amount > 0 ? "+" : "−"; // minus symbol
+        const anim = evt.amount > 0 ? "pulse-add" : "pulse-subtract";
+
+        balEl.textContent = `RM${currentBalance.toFixed(2)}`;
+        balEl.className = `text-6xl font-black text-violet-800 mb-8 transition-all ${anim}`;
+
+        dispEl.innerHTML = `
+            <div>
+                <div class="text-lg font-bold text-slate-700">${evt.name}</div>
+                <div class="text-3xl font-black ${color}">${sign} RM${Math.abs(evt.amount).toFixed(2)}</div>
+            </div>
+        `;
+
+        // Log Entry
+        const logItem = document.createElement('div');
+        logItem.className = "flex justify-between text-sm font-mono bg-slate-50 p-2 rounded";
+        logItem.innerHTML = `
+            <span>RM${oldBal.toFixed(2)} <span class="${color} font-bold">${sign} ${Math.abs(evt.amount).toFixed(2)}</span></span>
+            <span class="font-bold text-slate-700">= RM${currentBalance.toFixed(2)}</span>
+        `;
+        logEl.prepend(logItem);
+
+        btn.textContent = "Seterusnya ➡️";
+        speak(`${evt.name}. ${evt.amount > 0 ? 'Tambah' : 'Tolak'} RM${Math.abs(evt.amount).toFixed(2)}`);
+    }
+
+    /* --- 4. PADAN RESIT (ANGGARAN) --- */
+    let receiptSum = 0;
+    let receiptTarget = 145.50;
+
+    function loadActivity_Resit(content) {
+        receiptSum = 0; receiptTarget = 145.50;
+        setInfo(`Cari kombinasi barang supaya jadi RM${receiptTarget.toFixed(2)}`);
+        const items = [
+            { name: "Baju", price: 45.50, img: "👕" }, { name: "Seluar", price: 80.00, img: "👖" },
+            { name: "Buku", price: 20.00, img: "📚" }, { name: "Kasut", price: 100.00, img: "👟" },
+            { name: "Topi", price: 25.50, img: "🧢" }
+        ];
+
+        content.innerHTML = `
+            <h3 class="text-4xl font-bold text-orange-500 mb-6 text-center">🧾 Padan Resit</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div>
+                    <h4 class="font-bold text-orange-800 mb-2 text-center">Barang Pilihan</h4>
+                    <div class="flex flex-wrap justify-center gap-3">
+                        ${items.sort(()=>Math.random()-0.5).map(item => `
+                            <div class="drag-item bg-white border-2 border-orange-200 rounded-xl p-3 w-28 text-center cursor-grab hover:shadow-md" draggable="true" ondragstart="dragStart(event)" ondragend="dragEnd(event)" data-name="${item.name}" data-price="${item.price}">
+                                <div class="text-3xl mb-1">${item.img}</div>
+                                <div class="font-bold text-xs">${item.name}</div>
+                                <div class="text-orange-600 font-bold text-sm">RM${item.price.toFixed(2)}</div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+                
+                <div class="bg-orange-50 p-6 rounded-3xl border-4 border-orange-200 relative">
+                    <div class="absolute -top-4 left-1/2 transform -translate-x-1/2 bg-orange-600 text-white px-4 py-1 rounded-full font-bold shadow-sm">
+                        Target: RM${receiptTarget.toFixed(2)}
+                    </div>
+                    
+                    <div id="receipt-drop" class="drop-zone bg-white mt-4 rounded-xl min-h-[200px] p-4 flex flex-col gap-2" ondrop="dropOnReceipt(event)" ondragover="allowDrop(event)" ondragleave="dragLeave(event)">
+                        <div class="text-center text-slate-300 mt-10 pointer-events-none">Seret barang ke sini</div>
+                    </div>
+                    
+                    <div class="mt-4 flex justify-between items-center border-t-2 border-orange-200 pt-2">
+                        <span class="text-slate-500 font-bold">Jumlah:</span>
+                        <span id="rec-sum" class="text-3xl font-black text-slate-700">RM0.00</span>
+                    </div>
+                    <button onclick="loadActivity_Resit(document.getElementById('activity-content'))" class="w-full mt-2 text-sm text-orange-500 font-bold hover:underline">Reset</button>
+                </div>
+            </div>
+        `;
+    }
+
+    window.dropOnReceipt = function(e) {
+        e.preventDefault(); e.currentTarget.classList.remove('drag-over'); 
+        if(!draggedElement) return;
+        
+        // Clear placeholder
+        const ph = e.currentTarget.querySelector('.text-slate-300');
+        if(ph) ph.remove();
+
+        const price = parseFloat(draggedElement.dataset.price);
+        const name = draggedElement.dataset.name;
+        receiptSum += price;
+
+        const el = document.createElement('div');
+        el.className = "flex justify-between border-b border-dashed border-slate-200 pb-1";
+        el.innerHTML = `<span>${name}</span><span>RM${price.toFixed(2)}</span>`;
+        e.currentTarget.appendChild(el);
+        draggedElement.style.display = 'none'; 
+
+        const sumEl = document.getElementById('rec-sum');
+        sumEl.textContent = `RM${receiptSum.toFixed(2)}`;
+
+        if(Math.abs(receiptSum - receiptTarget) < 0.01) {
+            sumEl.classList.add('text-green-600');
+            e.currentTarget.classList.add('drop-zone-filled');
+            setInfo("Tepat sekali!"); speak("Tahniah, jumlah tepat!");
+            triggerWin();
+        } else if (receiptSum > receiptTarget) {
+            sumEl.classList.add('text-red-500', 'shake');
+            setInfo("Terlebih! Cuba reset."); speak("Alamak, terlebih.");
+        }
+    }
+
+    /* --- 5. BANDING BEZA (ALGORITMA TOLAK) --- */
+    function loadActivity_Banding(content) {
+        setInfo("Klik 'Kira Beza' untuk lihat jalan kerja.");
+        content.innerHTML = `
+            <h3 class="text-4xl font-bold text-rose-500 mb-6 text-center">🚲 Banding Harga (Bentuk Lazim)</h3>
+            <div id="compare-area" class="flex flex-col items-center"></div>
+        `;
+        loadNewCompare();
+    }
+
+    function loadNewCompare() {
+        const wrapper = document.getElementById('compare-area');
+        let priceA, priceB;
+        // Generate prices requiring borrowing
+        do {
+            let a = (Math.floor(Math.random() * 8000) + 2000) / 100;
+            let b = (Math.floor(Math.random() * (a * 100 - 1000)) + 1000) / 100;
+            // Simple check if borrowing is likely (simplified logic)
+            if(a % 10 < b % 10) { priceA = a; priceB = b; break; } 
+            priceA = a; priceB = b; // Fallback
+        } while(false);
+
+        wrapper.innerHTML = `
+            <div class="flex gap-6 mb-6">
+                <div class="bg-white border-2 border-slate-200 p-4 rounded-xl text-center w-40">
+                    <div class="text-4xl">💻</div>
+                    <div class="font-bold text-slate-600">RM${priceA.toFixed(2)}</div>
+                </div>
+                <div class="bg-white border-2 border-slate-200 p-4 rounded-xl text-center w-40">
+                    <div class="text-4xl">📱</div>
+                    <div class="font-bold text-slate-600">RM${priceB.toFixed(2)}</div>
+                </div>
+            </div>
+            <button onclick="showDiff(${priceA}, ${priceB})" class="btn-3d bg-rose-500 text-white font-bold py-3 px-8 rounded-full text-lg mb-6">
+                Kira Beza (Tolak)
+            </button>
+            <div id="diff-output" class="w-full max-w-md bg-rose-50 rounded-xl p-4 border-2 border-rose-100 min-h-[200px] flex items-center justify-center">
+                <span class="text-rose-300 font-bold">Jalan kira akan keluar di sini</span>
+            </div>
+        `;
+    }
+
+    window.showDiff = function(a, b) {
+        const out = document.getElementById('diff-output');
+        const html = generateSubtractionAlgorithm(a, b);
+        const diff = (a - b).toFixed(2);
+        out.innerHTML = `
+            <div class="flex flex-col items-center">
+                ${html}
+                <div class="mt-4 text-xl font-bold text-rose-700">Beza: RM${diff}</div>
+                <button onclick="loadNewCompare()" class="mt-4 text-sm text-slate-400 underline">Soalan Seterusnya</button>
+            </div>
+        `;
+        speak(`Beza harga ialah RM${diff}`);
+    }
+
+    // Helper to generate the Grid HTML (Complex logic from user snippet)
     function generateSubtractionAlgorithm(numA, numB) {
       const priceA_cents = Math.round(numA * 100);
       const priceB_cents = Math.round(numB * 100);
@@ -536,76 +571,37 @@
       let pinjam = ['', '', '', '', ''];
       let potong = ['', '', '', '', ''];
       const a_original = [...a];
+      
+      // Logic Pinjam
       for (let i = a.length - 1; i > 0; i--) {
         if (a[i] < b[i]) {
-          a[i] += 10; 
-          pinjam[i] = a[i]; 
-          potong[i] = a_original[i];
+          a[i] += 10; pinjam[i] = a[i]; potong[i] = a_original[i];
           let j = i - 1;
           while (j >= 0) {
-              pinjam[j] = a[j] - 1; 
-              potong[j] = a[j]; 
-              a[j]--; 
-              if (a[j] >= 0) {
-                break;
-              } else {
-                a[j] = 9; 
-                pinjam[j] = 9; 
-                potong[j] = 0;
-              }
+              pinjam[j] = a[j] - 1; potong[j] = a[j]; a[j]--;
+              if (a[j] >= 0) break; else { a[j] = 9; pinjam[j] = 9; potong[j] = 0; }
           }
         }
       }
+      
       const gridMap = [1, 2, 3, 5, 6];
       let topHTML = ['<div class="alg-symbol">RM</div>'];
       let midHTML = ['<div class="alg-symbol">−</div>'];
       let btmHTML = ['<div class="alg-symbol">RM</div>'];
+      
       for(let i = 0; i < 5; i++) {
-        let gridIndex = gridMap[i];
-        topHTML[gridIndex] = `<div class="alg-num"><span class="alg-num-pinjam">${pinjam[i]}</span><span class="alg-num-potong">${potong[i]}</span>${a_original[i]}</div>`;
-        midHTML[gridIndex] = `<div class="alg-num">${b[i]}</div>`;
-        btmHTML[gridIndex] = `<div class="alg-hasil">${d[i]}</div>`;
-        if (i === 2) {
-          topHTML[4] = '<div class="alg-dot">.</div>';
-          midHTML[4] = '<div class="alg-dot">.</div>';
-          btmHTML[4] = '<div class="alg-hasil-dot">.</div>';
-        }
+        let idx = gridMap[i];
+        topHTML[idx] = `<div class="alg-num"><span class="alg-num-pinjam">${pinjam[i]}</span><span class="alg-num-potong">${potong[i]}</span>${a_original[i]}</div>`;
+        midHTML[idx] = `<div class="alg-num">${b[i]}</div>`;
+        btmHTML[idx] = `<div class="alg-hasil">${d[i]}</div>`;
+        if (i === 2) { topHTML[4] = '<div class="alg-dot">.</div>'; midHTML[4] = '<div class="alg-dot">.</div>'; btmHTML[4] = '<div class="alg-hasil-dot">.</div>'; }
       }
-      return `<div class="text-xl font-semibold mb-3">Operasi Tolak (Bentuk Lazim):</div><div class="money-alg-grid-borrow"><div class="alg-label"></div><div class="alg-label"></div><div class="alg-label"></div><div class="alg-label"></div><div class="alg-label"></div><div class="alg-label"></div><div class="alg-label"></div>${topHTML.join('')}${midHTML.join('')}${btmHTML.join('')}</div>`;
+      
+      return `<div class="money-alg-grid-borrow"><div class="alg-label"></div><div class="alg-label"></div><div class="alg-label"></div><div class="alg-label"></div><div class="alg-label"></div><div class="alg-label"></div><div class="alg-label"></div>${topHTML.join('')}${midHTML.join('')}${btmHTML.join('')}</div>`;
     }
 
-    function showDifference(priceA, priceB) {
-      const output = document.getElementById('difference-output');
-      const difference = (priceA - priceB).toFixed(2);
-      output.innerHTML = generateSubtractionAlgorithm(priceA, priceB) + 
-        `<div class="text-lg font-semibold mt-4">Beza harga ialah RM ${difference}</div>`;
-      setInfo(`RM ${priceA.toFixed(2)} tolak RM ${priceB.toFixed(2)} sama dengan RM ${difference}.`);
-      speak(`Perbezaan harga ialah ${difference} ringgit.`);
-    }
-
-    /* ====== KAWALAN UMUM ====== */
-    function clearActivity() {
-      currentActivity = 0; cartTotal = 0.0; receiptSum = 0.0; currentBalance = 0.0; eventQueue = [];
-      document.getElementById('activity-content').innerHTML = `
-        <div class="text-center py-16">
-          <div class="text-6xl mb-4">💰</div>
-          <h2 class="text-3xl font-bold text-gray-800 mb-4">Kemahiran Pemulihan: Tambah & Tolak Wang (RM1000)</h2>
-          <p class="text-xl text-gray-600 mb-8">Jom teroka simulasi jual beli, bajet, dan pengiraan baki.</p>
-          <div class="text-4xl">👇</div>
-        </div>
-      `;
-      setInfo("Pilih aktiviti untuk mula belajar operasi wang!");
-    }
-    
-    function nextActivity() {
-      if (currentActivity === 0) return loadActivity(1);
-      if (currentActivity < 5) return loadActivity(currentActivity + 1);
-      return loadActivity(1);
-    }
-
-    if ('speechSynthesis' in window) {
-      setInterval(() => { if (window.speechSynthesis.paused) window.speechSynthesis.resume(); }, 1000);
-    }
+    // TTS Init
+    if ('speechSynthesis' in window) { setInterval(() => { if (window.speechSynthesis.paused) window.speechSynthesis.resume(); }, 1000); }
   </script>
 </body>
 </html>
